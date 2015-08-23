@@ -1,0 +1,122 @@
+---
+title: "Practical Machine Learning Project"
+author: "Trung-Hieu Nguyen"
+date: "August 23, 2015"
+output: html_document
+---
+#Libraries used in the project:  
+```{r message=FALSE}
+#Preparing and loading libraries
+library(caret)
+library(rpart)
+library(doParallel)
+library(randomForest)
+set.seed(1234)
+```
+
+Note: We load seed to reserve the consistency in obtained results.  
+
+#Preparing data :  
+The code below works under the assumption that data  has been downloaded and placed in folder name "Data"" in the working directory.
+The link to download these data sets are provided from these links  
+[Training data set](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)  
+[Testing data set](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)  
+A more complete procedure can be prepared.  
+
+```{r}
+training <- read.csv("./Data/pml-training.csv",
+                     na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv("./Data/pml-testing.csv",
+                    na.strings=c("NA","#DIV/0!",""))
+```
+
+We then proceed checking and removing any column that excessively containing missing values in testing sets and thus filter training set acordingly.  
+We can observe that Belt, arm, dumbbell, and forearm variables do not have any missing values in the test dataset will be predictor candidates.
+
+```{r}
+#Go through testing data and filter out columns that does not containng missing values
+isAnyMissing <- sapply(testing, function(x){any(is.na(x) | x == "")})
+
+#Any column that is not in the above list and have patterns of our observation will be retained
+isPredictor <- !isAnyMissing & grepl("belt|[^(fore)]arm|dumbbell|forearm", names(isAnyMissing))
+
+#The variables we will use for traing set
+predCandidates <- names(isAnyMissing)[isPredictor]
+```
+
+Using the names of predictor candidates above to filter our training data set. We also reserve "classe". 
+```{r}
+#Filtering
+training <- training[,c("classe",predCandidates)]
+#Converting classe to factor
+training$classe <- as.factor(training$classe)
+```
+
+Now we split the trainng set to sub training and validation with ratio 7:3.
+```{r}
+partTrain <- createDataPartition(y = training$classe, p = 0.7, list = F)
+training_Train <- training[partTrain, ]
+training_Valid <- training[-partTrain, ]
+```
+
+#Model construction:
+
+```{r}
+#Eliminate classe from our sub testing set 
+Tr <- training_Train[ ,-which(names(training_Train)=="classe")]
+#Here come the magic
+preProc <- preProcess(Tr, method="pca", pcaComp="30")
+trainPr <- predict(preProc, Tr)
+fit <- randomForest(training_Train$classe ~ ., data = trainPr, ntree=200)
+
+#Eliminate classe from our sub validation set 
+V <- training_Valid[ ,-which(names(training_Valid)=="classe")]
+#Abother magic
+validationPr <- predict(preProc, V)
+prediction <- predict(fit, validationPr)
+```
+
+#Cross validation:
+The cross validation procedure will gives us the below result:  
+```{r}
+cvRes <- table(prediction, training_Valid$classe)
+outOfSampleError <- 1 - (sum(diag(cvRes))/ length(prediction))
+cvRes
+outOfSampleError
+```
+The result is interpreted as the expectationn of the error rate is 0.0314 or about 2.20% . This includes false positives and false negatives.
+
+#Bring it on to our testing set(Oh Yeah):
+```{r}
+#Cleaning testing data
+testing <- testing[, predCandidates]
+#Apply our prediction to obtain results
+testPr <- predict(preProc, testing)
+answers <- predict(fit, testPr)
+answers
+```
+
+#Write out the output:
+This part is included instruction of the assignment. The code is provided by Coursera.
+
+The path is created with folder "Answers" in the working directory.
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  path <- "./Answers"
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=file.path(path, filename),quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+pml_write_files(answers)
+```
+
+
+
+
+
+
+
+
+
