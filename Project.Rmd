@@ -84,7 +84,7 @@ outOfSampleError <- 1 - (sum(diag(cvRes))/ length(prediction))
 cvRes
 outOfSampleError
 ```
-The result is interpreted as the expectationn of the error rate is 0.0314 or about 2.20% . This includes false positives and false negatives.
+The result is interpreted as the expectationn of the error rate about 2.30% . This includes false positives and false negatives.
 
 #Bring it on to our testing set(Oh Yeah):
 ```{r}
